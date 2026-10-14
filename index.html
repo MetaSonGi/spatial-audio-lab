@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b1020">
+<title>공간 음향 랩 🎧 — 3D 입체 음향 실험실</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    background: radial-gradient(circle at 50% 0%, #16204a, #070a18 70%);
+    color:#fff; min-height:100vh; padding:14px 10px 40px; user-select:none; -webkit-user-select:none;
+  }
+  #wrap { width:100%; max-width:680px; margin:0 auto; }
+  header { text-align:center; margin:8px 0 16px; }
+  header h1 { font-size:26px; font-weight:900; letter-spacing:-0.5px; }
+  header p { font-size:13px; opacity:.65; margin-top:4px; line-height:1.5; }
+  .card { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12);
+    border-radius:16px; padding:16px; margin-bottom:14px; }
+  .card h2 { font-size:16px; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .lbl { display:block; font-size:12px; opacity:.7; margin:10px 0 4px; }
+  .val { font-weight:800; opacity:1; color:#9fd0ff; }
+  .row { margin-top:4px; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  button { font-family:inherit; }
+  .btns button, .preset {
+    flex:1; min-width:100px; padding:11px 8px; border-radius:12px; cursor:pointer;
+    border:1px solid rgba(255,255,255,.18); background:#1a2140; color:#fff;
+    font-size:14px; font-weight:700;
+  }
+  .btns button:active, .preset:active { transform:scale(.97); }
+  .preset { font-size:15px; padding:13px 8px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  #startBtn.big, #addSrc.big2 {
+    width:100%; padding:15px; border-radius:14px; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#3b82f6,#8b5cf6); color:#fff;
+    font-size:17px; font-weight:900; margin-top:10px;
+  }
+  #startBtn.big:disabled { background:#2a3358; color:#8a93b8; cursor:default; }
+  #addSrc.big2 { background:#1e2a52; border:1px dashed rgba(255,255,255,.3); font-size:15px; }
+  input[type=range] { width:100%; accent-color:#5b8cff; height:28px; }
+  #field { display:block; width:100%; aspect-ratio:1/1; border-radius:14px; background:#0d1226;
+    box-shadow:0 12px 40px rgba(0,0,0,.5); touch-action:none; cursor:grab; }
+  #field:active { cursor:grabbing; }
+  #viz { display:block; width:100%; height:110px; border-radius:12px; background:#0d1226; margin-top:10px; }
+  .note { font-size:12px; opacity:.6; margin-top:10px; line-height:1.6; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#1c2450;
+    border:1px solid rgba(255,255,255,.2); color:#fff; padding:10px 18px; border-radius:24px;
+    font-size:14px; display:none; z-index:50; max-width:90vw; text-align:center; }
+  footer { text-align:center; font-size:12px; opacity:.45; margin-top:18px; }
+  /* source cards */
+  .src { background:#101736; border:1px solid rgba(255,255,255,.12); border-left:5px solid var(--c,#fff);
+    border-radius:12px; padding:12px; margin-bottom:10px; }
+  .srchead { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .srchead .dot { width:14px; height:14px; border-radius:50%; background:var(--c,#fff); flex:0 0 auto; }
+  .srchead b { font-size:15px; flex:1; }
+  .mini { width:36px; height:32px; border-radius:9px; border:1px solid rgba(255,255,255,.2);
+    background:#232c5c; color:#fff; font-size:14px; font-weight:800; cursor:pointer; }
+  .mini.del { background:#5c2330; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg button { flex:1; min-width:52px; padding:8px 4px; border-radius:9px; font-size:12.5px; font-weight:700;
+    border:1px solid rgba(255,255,255,.16); background:#0f1530; color:#fff; cursor:pointer; }
+  .seg button.on { background:#3b82f6; border-color:#3b82f6; }
+  .subctl { background:#0c1128; border-radius:10px; padding:8px 10px; margin-top:8px; }
+  .subctl .lbl { margin-top:6px; }
+  #recBtn.rec { background:#a31621; border-color:#a31621; }
+  #dlArea { display:none; margin-top:12px; background:#0f2f1c; border:1px solid #2d9e57;
+    border-radius:12px; padding:12px; text-align:center; }
+  #dlArea.show { display:block; }
+  #dlArea p { font-size:13px; margin-bottom:8px; }
+  #dlBtn { display:inline-block; padding:12px 28px; border-radius:12px; background:#2d9e57; color:#fff;
+    font-weight:800; text-decoration:none; font-size:15px; }
+  #recInd { display:none; align-items:center; gap:6px; color:#ff5d5d; font-weight:800; font-size:13px; margin-top:8px; }
+  #recInd.show { display:inline-flex; }
+  #recDot { width:10px; height:10px; border-radius:50%; background:#ff2222; animation:blink 1s infinite; }
+  @keyframes blink { 50% { opacity:.25; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>🎧 공간 음향 랩</h1>
+    <p>SuperCollider처럼 직접 만드는 3D 입체 음향 실험실<br>🎧 이어폰·헤드폰 착용을 권장합니다</p>
+  </header>
+
+  <div class="card">
+    <h2>▶ 시작하기</h2>
+    <p class="note">브라우저 자동재생 정책 때문에 아래 버튼을 눌러야 소리가 납니다. 입체 음향(HRTF)을 제대로 느끼려면 이어폰이나 헤드폰을 착용하세요.</p>
+    <button id="startBtn" class="big">🔊 오디오 시작</button>
+  </div>
+
+  <div class="card">
+    <h2>🗺 공간 필드 <span class="val" style="font-size:12px">±12m</span></h2>
+    <canvas id="field" width="600" height="600"></canvas>
+    <p class="note">점을 드래그해서 자유롭게 이동 · 🔵 파란 점 = 리스너(나) · 화살표 방향으로 고개를 돌립니다</p>
+    <div class="row"><label class="lbl">리스너 방향 <span id="headVal" class="val">0°</span></label></div>
+    <input type="range" id="headRange" min="0" max="360" value="0" step="1">
+    <div class="row btns">
+      <button id="resetListener">🎯 리스너 중앙으로</button>
+      <button id="playAll">▶ 모두 재생</button>
+      <button id="stopAll">⏹ 모두 정지</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>✨ 프리셋</h2>
+    <div class="grid2">
+      <button class="preset" data-p="drone">🌌 우주 드론</button>
+      <button class="preset" data-p="rain">🌧 빗소리</button>
+      <button class="preset" data-p="bees">🐝 벌떼</button>
+      <button class="preset" data-p="medit">🧘 명상</button>
+    </div>
+    <p class="note" id="presetDesc">원클릭으로 공간 음향 장면을 불러옵니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔈 음원 <span id="srcCount" class="val"></span></h2>
+    <div id="srcList"></div>
+    <button id="addSrc" class="big2">＋ 음원 추가 (최대 8개)</button>
+  </div>
+
+  <div class="card">
+    <h2>🏛 리버브</h2>
+    <div class="row"><label class="lbl">Dry (원음) <span id="dryVal" class="val">85%</span></label></div>
+    <input type="range" id="dryRange" min="0" max="100" value="85">
+    <div class="row"><label class="lbl">Wet (공간 울림) <span id="wetVal" class="val">35%</span></label></div>
+    <input type="range" id="wetRange" min="0" max="100" value="35">
+    <p class="note">임펄스 응답은 코드로 생성한 2초 노이즈 디케이를 사용합니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>🎚 마스터</h2>
+    <div class="row"><label class="lbl">전체 볼륨 <span id="mVolVal" class="val">80%</span></label></div>
+    <input type="range" id="mVolRange" min="0" max="100" value="80">
+    <canvas id="viz" width="600" height="120"></canvas>
+    <div class="row btns">
+      <button id="recBtn">⏺ 녹음 시작</button>
+    </div>
+    <div id="recInd"><span id="recDot"></span>REC <span id="recTime">0:00</span></div>
+    <div id="dlArea">
+      <p id="dlInfo">녹음 완료!</p>
+      <a id="dlBtn" href="#" download="spatial-audio-lab.webm">⬇ 녹음 다운로드</a>
+    </div>
+    <p class="note">녹음은 마스터 출력을 WebM 오디오로 저장합니다.</p>
+  </div>
+
+  <footer>spatial-audio-lab · 100% 브라우저 동작 · 외부 서버 없음 · WebAudio HRTF</footer>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+/* ================= constants & pure helpers ================= */
+var FIELD_M = 12; // half-extent of field in meters
+var COLORS = ['#ff5d5d','#ffb020','#4ade80','#38bdf8','#c084fc','#f472b6','#facc15','#2dd4bf'];
+var TYPE_LABEL = {sine:'사인', square:'사각', sawtooth:'톱니', triangle:'삼각', noise:'노이즈'};
+var TYPES = ['sine','square','sawtooth','triangle','noise'];
+
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+/* log-mapped frequency slider: 0..1000 -> 40..2000 Hz */
+function freqFromSlider(v){ v=clamp(v,0,1000); return 40*Math.pow(50, v/1000); }
+function sliderFromFreq(f){ f=clamp(f,40,2000); return Math.round(1000*Math.log(f/40)/Math.log(50)); }
+/* relative vector (rx right, ry canvas-down, meters) -> listener-local (r right, f forward) */
+function relToLocal(rx,ry,headingDeg){
+  var th=headingDeg*Math.PI/180, s=Math.sin(th), c=Math.cos(th);
+  return { r: rx*c + ry*s, f: rx*s - ry*c };
+}
+function fmtTime(s){ s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2); }
+
+/* ================= state ================= */
+var state = {
+  started:false,
+  listener:{ x:0, y:0, heading:0 },
+  masterVol:0.8, dry:0.85, wet:0.35,
+  sources:[],
+  recording:false
+};
+var srcSeq = 0;
+
+/* ================= audio globals ================= */
+var AC=null, masterGain=null, dryGain=null, wetGain=null, convolver=null,
+    analyser=null, mediaDest=null, noiseBuf=null;
+var recorder=null, recChunks=[], recMime="", recStartT=0;
+
+/* ================= DOM refs (assigned in init) ================= */
+var els = {};
+var fieldCanvas=null, fctx=null, vizCanvas=null, vctx=null;
+var dragTarget=null; // source object or 'listener'
+
+/* ================= toast ================= */
+var toastTimer=null;
+function toast(msg){
+  els.toast.textContent=msg; els.toast.style.display="block";
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){ els.toast.style.display="none"; }, 2800);
+}
+
+/* ================= audio graph builders ================= */
+function makeNoise(dur){
+  var rate=AC.sampleRate, len=Math.floor(rate*dur);
+  var buf=AC.createBuffer(1,len,rate), d=buf.getChannelData(0);
+  for(var i=0;i<len;i++) d[i]=Math.random()*2-1;
+  return buf;
+}
+function makeImpulse(dur){
+  var rate=AC.sampleRate, len=Math.floor(rate*dur);
+  var buf=AC.createBuffer(2,len,rate);
+  for(var ch=0;ch<2;ch++){
+    var d=buf.getChannelData(ch);
+    for(var i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5);
+  }
+  return buf;
+}
+function makePanner(){
+  var p=AC.createPanner();
+  try{ p.panningModel='HRTF'; }catch(e){ /* fallback to equalpower */ }
+  p.distanceModel='inverse'; p.refDistance=1; p.maxDistance=50; p.rolloffFactor=1;
+  return p;
+}
+function setPannerPos(p,x,y,z){
+  if(p.positionX){ p.positionX.value=x; p.positionY.value=y; p.positionZ.value=z; }
+  else if(p.setPosition){ p.setPosition(x,y,z); }
+}
+function setListenerOrientation(){
+  if(!AC) return;
+  var th=state.listener.heading*Math.PI/180;
+  var fx=Math.sin(th), fz=-Math.cos(th), L=AC.listener;
+  if(L.forwardX){ L.forwardX.value=fx; L.forwardY.value=0; L.forwardZ.value=fz; }
+  else if(L.setOrientation){ L.setOrientation(fx,0,fz,0,1,0); }
+}
+function buildSourceNodes(s){
+  var g=AC.createGain(); g.gain.value=s.vol;
+  var p=makePanner();
+  g.connect(p); p.connect(dryGain); p.connect(convolver);
+  var src, filt=null;
+  if(s.type==='noise'){
+    src=AC.createBufferSource(); src.buffer=noiseBuf; src.loop=true;
+    filt=AC.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=s.freq; filt.Q.value=0.8;
+    src.connect(filt); filt.connect(g);
+  } else {
+    src=AC.createOscillator(); src.type=s.type; src.frequency.value=s.freq;
+    src.connect(g);
+  }
+  try{ src.start(); }catch(e){}
+  s.nodes={src:src, gain:g, panner:p, filter:filt};
+}
+function stopSourceNodes(s){
+  if(!s.nodes) return;
+  try{ s.nodes.src.stop(); }catch(e){}
+  try{ s.nodes.src.disconnect(); }catch(e){}
+  try{ s.nodes.gain.disconnect(); }catch(e){}
+  try{ s.nodes.panner.disconnect(); }catch(e){}
+  s.nodes=null;
+}
+function applyFreq(s){
+  if(!s.nodes) return;
+  if(s.type==='noise' && s.nodes.filter){ s.nodes.filter.frequency.value=s.freq; }
+  else if(s.nodes.src.frequency){ s.nodes.src.frequency.value=s.freq; }
+}
+function applyVol(s){
+  if(s.nodes) s.nodes.gain.gain.value=s.vol;
+}
+
+/* ================= sources ================= */
+function findSrc(id){
+  for(var i=0;i<state.sources.length;i++) if(state.sources[i].id===id) return state.sources[i];
+  return null;
+}
+function addSource(opts, silent){
+  if(state.sources.length>=8){ if(!silent) toast('음원은 최대 8개까지 추가할 수 있습니다.'); return null; }
+  opts=opts||{};
+  var n=state.sources.length;
+  var ang=(n/8)*Math.PI*2;
+  var s={
+    id:'s'+(++srcSeq),
+    color:COLORS[n % COLORS.length],
+    type:opts.type||'sine',
+    freq:opts.freq||440,
+    vol:(opts.vol!=null?opts.vol:0.7),
+    motion:opts.motion||'fixed',
+    orbitR:opts.orbitR||4, orbitSpeed:(opts.orbitSpeed!=null?opts.orbitSpeed:0.5), orbitAngle:0,
+    wobbleAmp:(opts.wobbleAmp!=null?opts.wobbleAmp:1.5), wobT:0,
+    baseX:0, baseY:0,
+    x:(opts.x!=null?opts.x:3*Math.cos(ang)),
+    y:(opts.y!=null?opts.y:3*Math.sin(ang)),
+    playing:true, nodes:null
+  };
+  s.baseX=s.x; s.baseY=s.y;
+  if(s.motion==='orbit'){
+    var rx=s.x-state.listener.x, ry=s.y-state.listener.y;
+    s.orbitR=clamp(Math.hypot(rx,ry)||4,0.5,10);
+    s.orbitAngle=Math.atan2(ry,rx);
+  }
+  state.sources.push(s);
+  if(state.started && s.playing) buildSourceNodes(s);
+  if(!silent){ renderSrcList(); toast('🔈 음원 '+(state.sources.length)+' 추가'); }
+  return s;
+}
+function removeSrc(s){
+  stopSourceNodes(s);
+  state.sources=state.sources.filter(function(x){ return x!==s; });
+  renderSrcList();
+}
+function togglePlay(s){
+  s.playing=!s.playing;
+  if(state.started){ if(s.playing) buildSourceNodes(s); else stopSourceNodes(s); }
+}
+function setType(s,t){
+  s.type=t;
+  if(state.started && s.playing && s.nodes){ stopSourceNodes(s); buildSourceNodes(s); }
+}
+function setMotion(s,m){
+  s.motion=m;
+  if(m==='orbit'){
+    var rx=s.x-state.listener.x, ry=s.y-state.listener.y;
+    s.orbitR=clamp(Math.hypot(rx,ry)||4,0.5,10);
+    s.orbitAngle=Math.atan2(ry,rx);
+  } else if(m==='wobble'){
+    s.baseX=s.x; s.baseY=s.y; s.wobT=0;
+  }
+}
+
+/* ================= source list UI ================= */
+function srcCardHTML(s, idx){
+  var typeBtns=TYPES.map(function(t){
+    return '<button data-type="'+t+'" class="'+(s.type===t?'on':'')+'">'+TYPE_LABEL[t]+'</button>';
+  }).join('');
+  var mBtns=[['fixed','고정'],['orbit','공전'],['wobble','흔들림']].map(function(m){
+    return '<button data-motion="'+m[0]+'" class="'+(s.motion===m[0]?'on':'')+'">'+m[1]+'</button>';
+  }).join('');
+  return ''+
+  '<div class="src" data-id="'+s.id+'" style="--c:'+s.color+'">'+
+    '<div class="srchead"><span class="dot"></span><b>음원 '+(idx+1)+'</b>'+
+      '<button class="mini play">'+(s.playing?'⏸':'▶')+'</button>'+
+      '<button class="mini del">✕</button></div>'+
+    '<div class="row"><label class="lbl">소리 종류</label></div>'+
+    '<div class="seg">'+typeBtns+'</div>'+
+    '<div class="row"><label class="lbl">주파수 <span class="val fval">'+Math.round(s.freq)+'Hz</span>'+(s.type==='noise'?'<span style="opacity:.55"> (필터)</span>':'')+'</label></div>'+
+    '<input type="range" class="frange" min="0" max="1000" value="'+sliderFromFreq(s.freq)+'">'+
+    '<div class="row"><label class="lbl">볼륨 <span class="val vval">'+Math.round(s.vol*100)+'%</span></label></div>'+
+    '<input type="range" class="vrange" min="0" max="100" value="'+Math.round(s.vol*100)+'">'+
+    '<div class="row"><label class="lbl">움직임</label></div>'+
+    '<div class="seg">'+mBtns+'</div>'+
+    '<div class="subctl orbitCtl" style="display:'+(s.motion==='orbit'?'block':'none')+'">'+
+      '<div class="row"><label class="lbl">공전 반경 <span class="val orval">'+s.orbitR.toFixed(1)+'m</span></label></div>'+
+      '<input type="range" class="orRange" min="0.5" max="10" step="0.1" value="'+s.orbitR+'">'+
+      '<div class="row"><label class="lbl">공전 속도 <span class="val osval">'+s.orbitSpeed.toFixed(1)+'rad/s</span></label></div>'+
+      '<input type="range" class="osRange" min="-3" max="3" step="0.1" value="'+s.orbitSpeed+'">'+
+    '</div>'+
+    '<div class="subctl wobCtl" style="display:'+(s.motion==='wobble'?'block':'none')+'">'+
+      '<div class="row"><label class="lbl">흔들림 진폭 <span class="val woval">'+s.wobbleAmp.toFixed(1)+'m</span></label></div>'+
+      '<input type="range" class="woRange" min="0" max="3" step="0.1" value="'+s.wobbleAmp+'">'+
+    '</div>'+
+  '</div>';
+}
+function renderSrcList(){
+  els.srcList.innerHTML=state.sources.map(srcCardHTML).join('');
+  els.srcCount.textContent='('+state.sources.length+'/8)';
+  els.addSrc.disabled=state.sources.length>=8;
+  els.addSrc.style.opacity=state.sources.length>=8?'.4':'1';
+}
+function syncCard(card,s){
+  if(!card) return;
+  var pb=card.querySelector('.play'); if(pb) pb.textContent=s.playing?'⏸':'▶';
+  var tb=card.querySelectorAll('[data-type]');
+  for(var i=0;i<tb.length;i++) tb[i].classList.toggle('on', tb[i].dataset.type===s.type);
+  var mb=card.querySelectorAll('[data-motion]');
+  for(var j=0;j<mb.length;j++) mb[j].classList.toggle('on', mb[j].dataset.motion===s.motion);
+  var oc=card.querySelector('.orbitCtl'); if(oc) oc.style.display=s.motion==='orbit'?'block':'none';
+  var wc=card.querySelector('.wobCtl'); if(wc) wc.style.display=s.motion==='wobble'?'block':'none';
+  var orr=card.querySelector('.orRange'); if(orr){ orr.value=s.orbitR; var ov=card.querySelector('.orval'); if(ov) ov.textContent=s.orbitR.toFixed(1)+'m'; }
+  var osr=card.querySelector('.osRange'); if(osr){ osr.value=s.orbitSpeed; var sv=card.querySelector('.osval'); if(sv) sv.textContent=s.orbitSpeed.toFixed(1)+'rad/s'; }
+}
+
+/* ================= presets ================= */
+var PRESETS={
+  drone:{ desc:'디튠된 톱니파 3개가 천천히 공전하는 우주 드론', wet:70, dry:60, srcs:[
+    {type:'sawtooth',freq:55,vol:.5,motion:'orbit',orbitR:5,orbitSpeed:.25,x:5,y:0},
+    {type:'sawtooth',freq:82.5,vol:.5,motion:'orbit',orbitR:6.5,orbitSpeed:-.18,x:-6.5,y:0},
+    {type:'sawtooth',freq:110,vol:.45,motion:'orbit',orbitR:4,orbitSpeed:.32,x:0,y:4}]},
+  rain:{ desc:'사방에서 들려오는 필터드 노이즈 빗소리', wet:50, dry:80, srcs:[
+    {type:'noise',freq:1400,vol:.35,motion:'fixed',x:4,y:-4},
+    {type:'noise',freq:1800,vol:.35,motion:'fixed',x:-4,y:-4},
+    {type:'noise',freq:1100,vol:.3,motion:'fixed',x:4,y:4},
+    {type:'noise',freq:2000,vol:.3,motion:'fixed',x:-4,y:4}]},
+  bees:{ desc:'빠르게 작게 공전하는 벌떼', wet:15, dry:90, srcs:[
+    {type:'sawtooth',freq:190,vol:.4,motion:'orbit',orbitR:1.2,orbitSpeed:2.5,x:1.2,y:0},
+    {type:'sawtooth',freq:210,vol:.4,motion:'orbit',orbitR:1.6,orbitSpeed:-3.2,x:-1.6,y:0},
+    {type:'sawtooth',freq:175,vol:.35,motion:'orbit',orbitR:1.0,orbitSpeed:2.8,x:1,y:0}]},
+  medit:{ desc:'느린 사인파 2개 + 깊은 리버브 명상', wet:85, dry:50, srcs:[
+    {type:'sine',freq:174,vol:.5,motion:'fixed',x:2,y:-2},
+    {type:'sine',freq:285,vol:.45,motion:'fixed',x:-2,y:-2}]}
+};
+var PRESET_NAME={drone:'🌌 우주 드론',rain:'🌧 빗소리',bees:'🐝 벌떼',medit:'🧘 명상'};
+function applyPreset(name){
+  var p=PRESETS[name]; if(!p) return;
+  state.sources.forEach(stopSourceNodes);
+  state.sources=[];
+  p.srcs.forEach(function(o){ addSource(o,true); });
+  state.wet=p.wet/100; state.dry=p.dry/100;
+  if(state.started){ wetGain.gain.value=state.wet; dryGain.gain.value=state.dry; }
+  els.wetRange.value=p.wet; els.dryRange.value=p.dry;
+  els.wetVal.textContent=p.wet+'%'; els.dryVal.textContent=p.dry+'%';
+  els.presetDesc.textContent=PRESET_NAME[name]+' — '+p.desc;
+  renderSrcList();
+  toast('✨ 프리셋 적용: '+PRESET_NAME[name]);
+}
+
+/* ================= spatial field canvas ================= */
+function drawField(){
+  var c=fctx, S=fieldCanvas.width;
+  var scale=S/(2*FIELD_M);
+  function X(x){ return S/2 + x*scale; }
+  function Y(y){ return S/2 + y*scale; }
+  c.clearRect(0,0,S,S);
+  c.fillStyle='#0d1226'; c.fillRect(0,0,S,S);
+  /* grid */
+  c.strokeStyle='rgba(255,255,255,.09)'; c.lineWidth=1;
+  c.beginPath(); c.moveTo(S/2,0); c.lineTo(S/2,S); c.moveTo(0,S/2); c.lineTo(S,S/2); c.stroke();
+  c.font='11px system-ui'; c.fillStyle='rgba(255,255,255,.4)'; c.textAlign='left'; c.textBaseline='top';
+  for(var r=2;r<=10;r+=2){
+    c.beginPath(); c.arc(S/2,S/2,r*scale,0,Math.PI*2); c.stroke();
+    c.fillText(r+'m', S/2+3, S/2-r*scale+3);
+  }
+  /* sources */
+  state.sources.forEach(function(s,i){
+    var px=X(s.x), py=Y(s.y);
+    c.beginPath(); c.arc(px,py,15,0,Math.PI*2);
+    c.fillStyle=s.playing?s.color:'rgba(120,120,140,.5)'; c.fill();
+    if(dragTarget===s){ c.lineWidth=3; c.strokeStyle='#fff'; c.stroke(); }
+    c.fillStyle='#0b1020'; c.font='bold 13px system-ui'; c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(String(i+1),px,py);
+  });
+  /* listener */
+  var lx=X(state.listener.x), ly=Y(state.listener.y);
+  var th=state.listener.heading*Math.PI/180;
+  var ax=lx+Math.sin(th)*30, ay=ly-Math.cos(th)*30;
+  c.strokeStyle='rgba(255,255,255,.85)'; c.lineWidth=4; c.lineCap='round';
+  c.beginPath(); c.moveTo(lx,ly); c.lineTo(ax,ay); c.stroke();
+  c.beginPath(); c.arc(lx,ly,12,0,Math.PI*2);
+  c.fillStyle='#3b82f6'; c.fill();
+  c.lineWidth=dragTarget==='listener'?3:1.5;
+  c.strokeStyle=dragTarget==='listener'?'#fff':'rgba(255,255,255,.5)'; c.stroke();
+  c.fillStyle='#fff'; c.font='bold 10px system-ui'; c.textAlign='center'; c.textBaseline='middle';
+  c.fillText('나',lx,ly);
+}
+function fieldEventPos(ev){
+  var r=fieldCanvas.getBoundingClientRect();
+  var px=(ev.clientX-r.left)*(fieldCanvas.width/r.width);
+  var py=(ev.clientY-r.top)*(fieldCanvas.height/r.height);
+  var scale=fieldCanvas.width/(2*FIELD_M);
+  return { x:(px-fieldCanvas.width/2)/scale, y:(py-fieldCanvas.height/2)/scale, px:px, py:py };
+}
+function bindField(){
+  fieldCanvas.addEventListener('pointerdown', function(ev){
+    var p=fieldEventPos(ev), best=null, bd=30;
+    state.sources.forEach(function(s){
+      var sc=fieldCanvas.width/(2*FIELD_M);
+      var dx=p.px-(fieldCanvas.width/2+s.x*sc), dy=p.py-(fieldCanvas.height/2+s.y*sc);
+      var d=Math.hypot(dx,dy);
+      if(d<bd){ bd=d; best=s; }
+    });
+    var lsc=fieldCanvas.width/(2*FIELD_M);
+    var ldx=p.px-(fieldCanvas.width/2+state.listener.x*lsc),
+        ldy=p.py-(fieldCanvas.height/2+state.listener.y*lsc);
+    if(Math.hypot(ldx,ldy)<30 && Math.hypot(ldx,ldy)<bd){ best='listener'; }
+    if(best){
+      dragTarget=best;
+      try{ fieldCanvas.setPointerCapture(ev.pointerId); }catch(e){}
+      ev.preventDefault();
+    }
+  });
+  fieldCanvas.addEventListener('pointermove', function(ev){
+    if(!dragTarget) return;
+    var p=fieldEventPos(ev);
+    var nx=clamp(p.x,-FIELD_M,FIELD_M), ny=clamp(p.y,-FIELD_M,FIELD_M);
+    if(dragTarget==='listener'){ state.listener.x=nx; state.listener.y=ny; }
+    else {
+      dragTarget.x=nx; dragTarget.y=ny;
+      if(dragTarget.motion==='wobble'){ dragTarget.baseX=nx; dragTarget.baseY=ny; }
+      if(dragTarget.motion==='orbit'){
+        var rx=nx-state.listener.x, ry=ny-state.listener.y;
+        dragTarget.orbitR=clamp(Math.hypot(rx,ry)||1,0.5,10);
+        dragTarget.orbitAngle=Math.atan2(ry,rx);
+        var card=els.srcList.querySelector('[data-id="'+dragTarget.id+'"]');
+        syncCard(card,dragTarget);
+      }
+    }
+    ev.preventDefault();
+  });
+  function endDrag(){ dragTarget=null; }
+  fieldCanvas.addEventListener('pointerup', endDrag);
+  fieldCanvas.addEventListener('pointercancel', endDrag);
+}
+
+/* ================= visualizer ================= */
+var vizData=null;
+function drawViz(){
+  var c=vctx, W=vizCanvas.width, H=vizCanvas.height;
+  c.clearRect(0,0,W,H); c.fillStyle='#0d1226'; c.fillRect(0,0,W,H);
+  if(!state.started || !analyser){ 
+    c.fillStyle='rgba(255,255,255,.35)'; c.font='13px system-ui';
+    c.textAlign='center'; c.textBaseline='middle';
+    c.fillText('오디오 시작 후 스펙트럼이 표시됩니다', W/2, H/2);
+    return;
+  }
+  if(!vizData || vizData.length!==analyser.frequencyBinCount) vizData=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(vizData);
+  var n=Math.min(48, vizData.length), bw=W/n;
+  for(var i=0;i<n;i++){
+    var v=vizData[i]/255, h=Math.max(2, v*(H-8));
+    var g=c.createLinearGradient(0,H,0,H-h);
+    g.addColorStop(0,'#3b82f6'); g.addColorStop(1,'#8b5cf6');
+    c.fillStyle=g;
+    c.fillRect(i*bw+1, H-h, bw-2, h);
+  }
+}
+
+/* ================= recording ================= */
+function pickMime(){
+  var cands=['audio/webm;codecs=opus','audio/webm','video/webm;codecs=vp8,opus','video/webm'];
+  for(var i=0;i<cands.length;i++){
+    try{ if(window.MediaRecorder && MediaRecorder.isTypeSupported(cands[i])) return cands[i]; }catch(e){}
+  }
+  return '';
+}
+function startRecording(){
+  if(state.recording) return;
+  if(!state.started){ toast('먼저 🔊 오디오 시작을 눌러주세요.'); return; }
+  if(!('captureStream' in vizCanvas) && !window.MediaRecorder){ toast('이 브라우저는 녹음을 지원하지 않습니다.'); return; }
+  var mime=pickMime();
+  if(!mime){ toast('지원하는 녹음 코덱이 없습니다.'); return; }
+  recChunks=[]; recMime=mime; recStartT=Date.now();
+  try{ recorder=new MediaRecorder(mediaDest.stream,{mimeType:mime}); }
+  catch(e){ toast('녹음 시작 실패: '+e.message); return; }
+  recorder.ondataavailable=function(ev){ if(ev.data && ev.data.size) recChunks.push(ev.data); };
+  recorder.onstop=finishRecording;
+  try{ recorder.start(250); }catch(e){ toast('녹음 시작 실패'); return; }
+  state.recording=true;
+  els.recBtn.textContent='⏹ 녹음 중지'; els.recBtn.classList.add('rec');
+  els.recInd.classList.add('show');
+  els.dlArea.classList.remove('show');
+  toast('⏺ 녹음 중...');
+}
+function stopRecording(){
+  if(recorder && recorder.state!=='inactive'){ try{ recorder.stop(); }catch(e){ finishRecording(); } }
+  else finishRecording();
+}
+function finishRecording(){
+  state.recording=false;
+  els.recBtn.textContent='⏺ 녹음 시작'; els.recBtn.classList.remove('rec');
+  els.recInd.classList.remove('show');
+  var type=recMime.split(';')[0]||'audio/webm';
+  var blob=new Blob(recChunks,{type:type});
+  var url=URL.createObjectURL(blob);
+  els.dlBtn.href=url;
+  var mb=(blob.size/1048576).toFixed(1);
+  els.dlInfo.textContent='녹음 완료! ('+mb+'MB) 아래 버튼으로 저장하세요.';
+  els.dlArea.classList.add('show');
+  toast('✅ 녹음이 완료되었습니다.');
+}
+
+/* ================= main loop ================= */
+var lastT=0;
+function updatePanners(){
+  var L=state.listener;
+  state.sources.forEach(function(s){
+    if(!s.nodes) return;
+    var loc=relToLocal(s.x-L.x, s.y-L.y, L.heading);
+    setPannerPos(s.nodes.panner, loc.r, 0, -loc.f);
+  });
+}
+function tick(now){
+  requestAnimationFrame(tick);
+  var dt=lastT?(now-lastT)/1000:0.016; lastT=now;
+  if(dt>0.1) dt=0.1;
+  state.sources.forEach(function(s){
+    if(!s.playing) return;
+    if(s.motion==='orbit'){
+      s.orbitAngle+=s.orbitSpeed*dt;
+      s.x=state.listener.x+s.orbitR*Math.cos(s.orbitAngle);
+      s.y=state.listener.y+s.orbitR*Math.sin(s.orbitAngle);
+    } else if(s.motion==='wobble'){
+      s.wobT+=dt;
+      s.x=s.baseX+s.wobbleAmp*Math.sin(2*Math.PI*0.6*s.wobT);
+      s.y=s.baseY;
+    }
+  });
+  if(state.started) updatePanners();
+  drawField();
+  drawViz();
+  if(state.recording) els.recTime.textContent=fmtTime((Date.now()-recStartT)/1000);
+}
+
+/* ================= start audio ================= */
+function startAudio(){
+  if(state.started) return;
+  var Ctor=window.AudioContext||window.webkitAudioContext;
+  if(!Ctor){ toast('이 브라우저는 WebAudio를 지원하지 않습니다.'); return; }
+  AC=new Ctor();
+  if(AC.state==='suspended'){ try{ AC.resume(); }catch(e){} }
+  masterGain=AC.createGain(); masterGain.gain.value=state.masterVol;
+  dryGain=AC.createGain(); dryGain.gain.value=state.dry;
+  wetGain=AC.createGain(); wetGain.gain.value=state.wet;
+  convolver=AC.createConvolver(); convolver.buffer=makeImpulse(2);
+  analyser=AC.createAnalyser(); analyser.fftSize=128; analyser.smoothingTimeConstant=0.75;
+  mediaDest=AC.createMediaStreamDestination();
+  masterGain.connect(analyser);
+  analyser.connect(AC.destination);
+  analyser.connect(mediaDest);
+  dryGain.connect(masterGain);
+  convolver.connect(wetGain); wetGain.connect(masterGain);
+  noiseBuf=makeNoise(2);
+  setListenerOrientation();
+  state.sources.forEach(function(s){ if(s.playing) buildSourceNodes(s); });
+  state.started=true;
+  els.startBtn.disabled=true;
+  els.startBtn.textContent='✅ 오디오 동작 중';
+  toast('🎧 오디오 시작! 점을 드래그해서 공간 음향을 느껴보세요.');
+}
+
+/* ================= init ================= */
+function init(){
+  ['toast','startBtn','headRange','headVal','resetListener','playAll','stopAll',
+   'presetDesc','srcList','srcCount','addSrc','dryRange','dryVal','wetRange','wetVal',
+   'mVolRange','mVolVal','recBtn','recInd','recTime','dlArea','dlInfo','dlBtn'
+  ].forEach(function(id){ els[id]=document.getElementById(id); });
+  fieldCanvas=document.getElementById('field'); fctx=fieldCanvas.getContext('2d');
+  vizCanvas=document.getElementById('viz'); vctx=vizCanvas.getContext('2d');
+
+  els.startBtn.addEventListener('click', startAudio);
+  bindField();
+
+  els.headRange.addEventListener('input', function(){
+    state.listener.heading=+els.headRange.value;
+    els.headVal.textContent=els.headRange.value+'°';
+    setListenerOrientation();
+  });
+  els.resetListener.addEventListener('click', function(){
+    state.listener.x=0; state.listener.y=0; state.listener.heading=0;
+    els.headRange.value=0; els.headVal.textContent='0°';
+    setListenerOrientation();
+    toast('🎯 리스너를 중앙으로 되돌렸습니다.');
+  });
+  els.playAll.addEventListener('click', function(){
+    state.sources.forEach(function(s){ if(!s.playing) togglePlay(s); });
+    renderSrcList();
+  });
+  els.stopAll.addEventListener('click', function(){
+    state.sources.forEach(function(s){ if(s.playing) togglePlay(s); });
+    renderSrcList();
+  });
+
+  document.querySelectorAll('.preset').forEach(function(b){
+    b.addEventListener('click', function(){ applyPreset(b.dataset.p); });
+  });
+
+  els.addSrc.addEventListener('click', function(){ addSource(null); });
+
+  els.srcList.addEventListener('click', function(e){
+    var card=e.target.closest('.src'); if(!card) return;
+    var s=findSrc(card.dataset.id); if(!s) return;
+    var b=e.target.closest('button'); if(!b) return;
+    if(b.classList.contains('play')){ togglePlay(s); syncCard(card,s); }
+    else if(b.classList.contains('del')){ removeSrc(s); }
+    else if(b.dataset.type){ setType(s,b.dataset.type); syncCard(card,s); }
+    else if(b.dataset.motion){ setMotion(s,b.dataset.motion); syncCard(card,s); }
+  });
+  els.srcList.addEventListener('input', function(e){
+    var card=e.target.closest('.src'); if(!card) return;
+    var s=findSrc(card.dataset.id); if(!s) return;
+    var t=e.target;
+    if(t.classList.contains('frange')){
+      s.freq=freqFromSlider(+t.value); applyFreq(s);
+      var fv=card.querySelector('.fval'); if(fv) fv.textContent=Math.round(s.freq)+'Hz';
+    } else if(t.classList.contains('vrange')){
+      s.vol=+t.value/100; applyVol(s);
+      var vv=card.querySelector('.vval'); if(vv) vv.textContent=t.value+'%';
+    } else if(t.classList.contains('orRange')){
+      s.orbitR=+t.value;
+      var ov=card.querySelector('.orval'); if(ov) ov.textContent=(+t.value).toFixed(1)+'m';
+    } else if(t.classList.contains('osRange')){
+      s.orbitSpeed=+t.value;
+      var sv=card.querySelector('.osval'); if(sv) sv.textContent=(+t.value).toFixed(1)+'rad/s';
+    } else if(t.classList.contains('woRange')){
+      s.wobbleAmp=+t.value;
+      var wv=card.querySelector('.woval'); if(wv) wv.textContent=(+t.value).toFixed(1)+'m';
+    }
+  });
+
+  els.dryRange.addEventListener('input', function(){
+    state.dry=+els.dryRange.value/100; els.dryVal.textContent=els.dryRange.value+'%';
+    if(dryGain) dryGain.gain.value=state.dry;
+  });
+  els.wetRange.addEventListener('input', function(){
+    state.wet=+els.wetRange.value/100; els.wetVal.textContent=els.wetRange.value+'%';
+    if(wetGain) wetGain.gain.value=state.wet;
+  });
+  els.mVolRange.addEventListener('input', function(){
+    state.masterVol=+els.mVolRange.value/100; els.mVolVal.textContent=els.mVolRange.value+'%';
+    if(masterGain) masterGain.gain.value=state.masterVol;
+  });
+  els.recBtn.addEventListener('click', function(){
+    if(state.recording) stopRecording(); else startRecording();
+  });
+
+  /* default demo scene (silent until audio starts) */
+  addSource({type:'sine',freq:440,vol:.7,motion:'fixed',x:4,y:-2},true);
+  addSource({type:'sawtooth',freq:220,vol:.5,motion:'orbit',orbitR:5,orbitSpeed:.4,x:5,y:0},true);
+  renderSrcList();
+
+  requestAnimationFrame(tick);
+}
+
+if(typeof document!=='undefined' && document.getElementById && document.getElementById('field')){ init(); }
+if(typeof globalThis!=='undefined'){
+  globalThis.__spatialTest={
+    clamp:clamp, freqFromSlider:freqFromSlider, sliderFromFreq:sliderFromFreq,
+    relToLocal:relToLocal, fmtTime:fmtTime, FIELD_M:FIELD_M
+  };
+}
+</script>
+</body>
+</html>
